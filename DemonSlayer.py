@@ -393,7 +393,6 @@ def restart_game():
     demon.rect.bottom = Screen_H - 10  # Set bottom of demon to 10 pixels above screen bottom
 
     pg.mixer.music.play(loops=-1)
-    stop = 1
 
 
 # Create instances
@@ -442,7 +441,9 @@ while run:
         attack_hitbox = adventurer.get_attack_hitbox()
         pg.draw.rect(screen, (255, 0, 0), attack_hitbox, 2)  # Draw attack hitbox in red
     adventurer.draw_hitbox()
-    if adventurer_health == 0 and stop == 1:
+    if adventurer_health >= 1:
+        stop = 1
+    if adventurer_health <= 0 and stop == 1:
         loseSound.play()
         stop -=1
     # Update and draw the demon
