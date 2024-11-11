@@ -4,21 +4,60 @@ import os
 
 pg.init()
 
-# Game constants
-Screen_W = 1200
-Screen_H = 700
-FPS = 60
+BackGround = pg.image.load("./assets/bg/background.png")
+Screen_W, Screen_H = BackGround.get_width(), BackGround.get_height()
 
-# Screen setup
 screen = pg.display.set_mode((Screen_W, Screen_H))
 pg.display.set_caption('Adventurer vs Demon')
 
-# Load Background
-BackGround = pg.image.load("./assets/BG/Background.png").convert_alpha()
 BackGround = pg.transform.scale(BackGround, (Screen_W, Screen_H))
+
+# Constant
+FPS = 60
+
+font = pg.font.SysFont("arial", 52)  # Large font for the title
+medium_font = pg.font.SysFont("arial", 36)  # Medium font for the start prompt
+small_font = pg.font.SysFont("arial", 28)  # Small font for instructions
 
 # Define a Clock
 clock = pg.time.Clock()
+
+def start_screen():
+    waiting = True
+    while waiting:
+        # Draw background
+        screen.blit(BackGround, (0, 0))
+
+        # Render title text
+        title_text = font.render("Demon Slayer", True, (255, 255, 255))
+        screen.blit(title_text, (Screen_W // 2 - title_text.get_width() // 2, Screen_H // 3))
+
+        # Render start prompt text
+        prompt_text = medium_font.render("Press Space to Start", True, (255, 255, 255))
+        screen.blit(prompt_text, (Screen_W // 2 - prompt_text.get_width() // 2, Screen_H // 2))
+
+        # Render movement instructions
+        move_text = small_font.render("Use A to move LEFT and D to move RIGHT", True, (255, 255, 255))
+        screen.blit(move_text, (Screen_W // 2 - move_text.get_width() // 2, Screen_H - 120))
+
+        # Render jump instruction
+        jump_text = small_font.render("Use SPACE to jump", True, (255, 255, 255))
+        screen.blit(jump_text, (Screen_W // 2 - jump_text.get_width() // 2, Screen_H - 80))
+
+        # Render attack instruction
+        attack_text = small_font.render("Press J to ATTACK", True, (255, 255, 255))
+        screen.blit(attack_text, (Screen_W // 2 - attack_text.get_width() // 2, Screen_H - 40))
+
+        # Update the display
+        pg.display.flip()
+
+        # Event handling for starting the game
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+                quit()
+            elif event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                waiting = False  # Exit the start screen loop
 
 # Adventurer and Demon Stats
 adventurer_health = 10
@@ -123,6 +162,12 @@ class Adventurer(pg.sprite.Sprite):
             self.flip = False
             self.direction = 1
 
+        # Prevent moving off-screen
+        if self.rect.left + dx < 0:
+            dx = -self.rect.left
+        elif self.rect.right + dx > Screen_W:
+            dx = Screen_W - self.rect.right
+
         self.rect.x += dx
 
         if self.jump:
@@ -161,8 +206,8 @@ class Adventurer(pg.sprite.Sprite):
     def draw(self):
         screen.blit(pg.transform.flip(self.image, self.flip, False), self.rect)
 
-    def draw_hitbox(self):
-        pg.draw.rect(screen, (255, 0, 0), self.rect, 2)
+    #def draw_hitbox(self):
+        #pg.draw.rect(screen, (255, 0, 0), self.rect, 2)
 
     def attack(self):
         if not self.attacking:
@@ -251,20 +296,22 @@ class Demon(pg.sprite.Sprite):
                     self.index = 0  # Loop back to first frame
             self.image = self.animation_list[self.action][self.index]
 
+
     def create_hitbox(self):
-        hitbox_width = int(self.rect.width * 0.5)  # Adjust this value as needed
-        hitbox_height = int(self.rect.height * 0.8)  # Adjust this value as needed
+        hitbox_width = int(self.rect.width * 0.5)
+        hitbox_height = int(self.rect.height * 0.8)
         hitbox_x = self.rect.centerx - hitbox_width // 2
         hitbox_y = self.rect.bottom - hitbox_height
         self.hitbox = pg.Rect(hitbox_x, hitbox_y, hitbox_width, hitbox_height)
 
-    def draw(self):
-        self.rect.bottom = Screen_H - 10
-        self.create_hitbox()  # Update hitbox position
-        screen.blit(pg.transform.flip(self.image, self.flip, False), self.rect)
 
-    def draw_hitbox(self):
-        pg.draw.rect(screen, (255, 0, 0), self.hitbox, 2)
+    def draw(self):
+        self.create_hitbox()
+        flipped_image = pg.transform.flip(self.image, self.flip, False)
+        screen.blit(flipped_image, self.rect)
+
+    #def draw_hitbox(self):
+        #pg.draw.rect(screen, (255, 0, 0), self.hitbox, 2)
 
 
 # Function to handle adventurer's attack
@@ -296,27 +343,38 @@ def demon_ai():
     global adventurer_health
     if demon.alive and adventurer.alive:
         if demon.action != 'attack':
-            if abs(demon.rect.x - adventurer.rect.x) > 100:
-                if demon.rect.x < adventurer.rect.x:
+            distance = abs(demon.rect.centerx - adventurer.rect.centerx)
+            if distance > 100:
+                if demon.rect.centerx < adventurer.rect.centerx:
                     demon.direction = 1
-                    demon.flip = True
-                elif demon.rect.x > adventurer.rect.x:
+                    demon.flip = True  # Demon is moving right, so don't flip
+                else:
                     demon.direction = -1
-                    demon.flip = False
-                demon.rect.x += demon.speed * demon.direction
+                    demon.flip = False  # Demon is moving left, so flip
+
+                # Calculate new position
+                new_x = demon.rect.x + demon.speed * demon.direction
+
+                # Prevent moving off-screen
+                if new_x < 0:
+                    new_x = 0
+                elif new_x + demon.rect.width > Screen_W:
+                    new_x = Screen_W - demon.rect.width
+
+                demon.rect.x = new_x
                 demon.action = 'move'
             else:
                 demon.action = 'attack'
                 demon.index = 0  # Reset the animation index when starting the attack
 
         if demon.action == 'attack':
-            if demon.index == 10:  # The specific frame for the attack hit
+            if demon.index == 9:  # The specific frame for the attack hit (10th frame, counting from 0)
                 attack_rect = demon.hitbox.copy()
                 attack_rect.width = attack_rect.width // 2
-                if not demon.flip:
-                    attack_rect.left = demon.hitbox.right
-                else:
-                    attack_rect.right = demon.hitbox.left
+                if demon.flip:  # If demon is facing right
+                    attack_rect.left = demon.hitbox.centerx
+                else:  # If demon is facing left
+                    attack_rect.right = demon.hitbox.centerx
 
                 if attack_rect.colliderect(adventurer.rect):
                     adventurer_health -= 1
@@ -332,8 +390,6 @@ def demon_ai():
             # Plays attack sound at end of animation
             if demon.index == 10:
                 enemyAttackSound.play()
-
-
 
 def check_game_over():
     global run
@@ -372,8 +428,8 @@ def restart_game():
     global adventurer_health, demon_health, adventurer, demon
 
     # Reset health
-    adventurer_health = 8  # Changed from 1 to 8
-    demon_health = 25  # Changed from 10000 to 100
+    adventurer_health = 8
+    demon_health = 25
 
     # Reset adventurer
     adventurer.alive = True
@@ -382,7 +438,7 @@ def restart_game():
     adventurer.index = 0
     adventurer.action = 'Idle'
     adventurer.rect.x = 100
-    adventurer.rect.bottom = Screen_H - 10  # Set bottom of adventurer to 10 pixels above screen bottom
+    adventurer.rect.bottom = Screen_H - 50  # Set bottom of adventurer to 10 pixels above screen bottom
 
     # Reset demon
     demon.alive = True
@@ -390,7 +446,7 @@ def restart_game():
     demon.index = 0
     demon.action = 'Idle'
     demon.rect.x = 800
-    demon.rect.bottom = Screen_H - 10  # Set bottom of demon to 10 pixels above screen bottom
+    demon.rect.bottom = Screen_H - 50  # Set bottom of demon to 10 pixels above screen bottom
 
     pg.mixer.music.play(loops=-1)
 
@@ -402,6 +458,8 @@ demon = Demon(800, Screen_H - 150, 2, 3)
 # Adjust the initial positions
 adventurer.rect.bottom = Screen_H - 10
 demon.rect.bottom = Screen_H - 10
+
+start_screen()
 
 # Main game loop
 run = True
@@ -446,11 +504,12 @@ while run:
     if adventurer_health <= 0 and stop == 1:
         loseSound.play()
         stop -=1
+
     # Update and draw the demon
     demon_ai()
     demon.update_animation()
     demon.draw()
-    demon.draw_hitbox()
+    #demon.draw_hitbox()
 
     if adventurer.alive:
         handle_attack()
