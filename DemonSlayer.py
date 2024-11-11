@@ -24,6 +24,16 @@ clock = pg.time.Clock()
 adventurer_health = 10
 demon_health = 25
 
+#loading music and sounds
+pg.mixer.music.load("./assets/Sound/Music.mp3")
+enemyAttackSound = pg.mixer.Sound("./assets/Sound/Enemy_Attack.mp3")
+enemyDeathSound = pg.mixer.Sound("./assets/Sound/Enemy_Death.mp3")
+loseSound = pg.mixer.Sound("./assets/Sound/Failure.mp3")
+victorySound = pg.mixer.Sound("./assets/Sound/Victory.mp3")
+playerAttackSound = pg.mixer.Sound("./assets/Sound/Player_Attack.mp3")
+pg.mixer.music.play(loops=-1)
+stop = 1
+
 
 # Adventurer Class
 class Adventurer(pg.sprite.Sprite):
@@ -168,6 +178,7 @@ class Adventurer(pg.sprite.Sprite):
                     self.action = 'attack2'
                 else:
                     self.action = 'attack3'
+            playerAttackSound.play()
             self.index = 0
 
     def get_attack_hitbox(self):
@@ -318,14 +329,23 @@ def demon_ai():
             if demon.index >= len(demon.animation_list['attack']) - 1:
                 demon.action = 'Idle'  # Reset to Idle after attack animation completes
 
+            # Plays attack sound at end of animation
+            if demon.index == 10:
+                enemyAttackSound.play()
+
 
 
 def check_game_over():
     global run
     if not adventurer.alive:
+        pg.mixer.music.stop()
         if adventurer.death_animation_complete:
             game_over_screen("Adventurer Died! Press 1 to Restart or 2 to Quit.")
+    elif not demon.alive and not demon.death_animation_complete:
+        pg.mixer.music.stop()
+        enemyDeathSound.play(0, 100)
     elif not demon.alive and demon.death_animation_complete:
+        victorySound.play()
         game_over_screen("Demon Defeated! Press 1 to Restart or 2 to Quit.")
 
 
@@ -371,6 +391,9 @@ def restart_game():
     demon.action = 'Idle'
     demon.rect.x = 800
     demon.rect.bottom = Screen_H - 10  # Set bottom of demon to 10 pixels above screen bottom
+
+    pg.mixer.music.play(loops=-1)
+    stop = 1
 
 
 # Create instances
@@ -419,7 +442,9 @@ while run:
         attack_hitbox = adventurer.get_attack_hitbox()
         pg.draw.rect(screen, (255, 0, 0), attack_hitbox, 2)  # Draw attack hitbox in red
     adventurer.draw_hitbox()
-
+    if adventurer_health == 0 and stop == 1:
+        loseSound.play()
+        stop -=1
     # Update and draw the demon
     demon_ai()
     demon.update_animation()
